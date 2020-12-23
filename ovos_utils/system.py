@@ -92,7 +92,7 @@ def is_process_running(process):
     return False
 
 
-def get_platform_features():
+def get_platform_fingerprint():
     # TODO hostname
 
     # TODO avoid circular import
