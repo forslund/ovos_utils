@@ -1,4 +1,5 @@
 from ovos_utils.configuration import read_mycroft_config, update_mycroft_config
+from os.path import join
 
 
 def blacklist_skill(skill):
@@ -44,3 +45,10 @@ def make_priority_skill(skill):
         update_mycroft_config(conf)
         return True
     return False
+
+
+def get_skills_folder():
+    config = read_mycroft_config()
+    data_dir = config["data_dir"]
+    skill_folder = config["skills"]["msm"]["directory"]
+    return join(data_dir, skill_folder)
