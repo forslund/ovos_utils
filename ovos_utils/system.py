@@ -5,7 +5,7 @@ import subprocess
 import re
 from enum import Enum
 import platform
-from ovos_utils.display import can_display,  is_gui_installed
+from ovos_utils.display import can_display, is_gui_installed
 
 
 class MycroftRootLocations(str, Enum):
@@ -14,13 +14,14 @@ class MycroftRootLocations(str, Enum):
     OVOS = "/home/mycroft/mycroft-core"  # TODO ovos here
     OLD_MARK1 = "/opt/venvs/mycroft-core/lib/python3.4/site-packages/"
     MARK1 = "/opt/venvs/mycroft-core/lib/python3.7/site-packages/"
+    MARK2 = "/home/mycroft/mycroft-core"  # TODO mark2 here
 
 
 def is_default_root_location():
-    return get_default_mycroft_core_location() is not None
+    return search_mycroft_core_location() is not None
 
 
-def get_default_mycroft_core_location():
+def search_mycroft_core_location():
     for p in MycroftRootLocations:
         if os.path.isdir(p):
             return p
@@ -109,7 +110,7 @@ def get_platform_fingerprint():
         "version": platform.version(),
         "arch": platform.machine(),
         "data_dir": conf.get("data_dir"),
-        "msm_skills_dir":  skills_conf.get("msm", {}).get("directory"),
+        "msm_skills_dir": skills_conf.get("msm", {}).get("directory"),
         "release": platform.release(),
         "node": platform.node(),
         "desktop_env": get_desktop_environment(),
@@ -119,7 +120,7 @@ def get_platform_fingerprint():
         "default_audio_backend": conf.get("Audio", {}).get("default-backend"),
         "priority_skills": skills_conf.get("priority_skills"),
         "backend_url": conf.get("server", {}).get("url"),
-        "mycroft_core_location": get_default_mycroft_core_location(),
+        "mycroft_core_location": search_mycroft_core_location(),
         "can_display": can_display(),
         "is_gui_installed": is_gui_installed(),
         "pulseaudio_running": is_process_running("pulseaudio")
@@ -153,4 +154,3 @@ def ssh_disable():
     # Permanently block SSH access from the outside
     subprocess.call('sudo systemctl stop ssh.service', shell=True)
     subprocess.call('sudo systemctl disable ssh.service', shell=True)
-
