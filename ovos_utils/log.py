@@ -49,12 +49,12 @@ class LOG:
         cls.level = config.get("level", "DEBUG")
 
     @classmethod
-    def create_logger(cls, name, tostdout=True):
+    def create_logger(cls, name, tostdout=False):
         if name in cls._loggers:
             return cls._loggers[name]
         logger = logging.getLogger(name)
         logger.propagate = False
-        # always log to stdout
+        # also log to stdout
         if tostdout:
             stdout_handler = logging.StreamHandler(sys.stdout)
             stdout_handler.setFormatter(cls.formatter)
