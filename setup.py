@@ -17,6 +17,7 @@ setup(
                       "inflection",
                       "colour",
                       "pexpect",
+                      "PyYAML",
                       "requests"],
     include_package_data=True,
     license='Apache',

@@ -13,9 +13,11 @@
 # limitations under the License.
 #
 from enum import IntEnum
-from os.path import join
+from os.path import join, isfile
 from ovos_utils.log import LOG
 from ovos_utils import get_mycroft_root, resolve_ovos_resource_file
+from ovos_utils.waiting_for_mycroft.settings_gui_generator import SettingsGuiGenerator
+
 try:
     from mycroft.enclosure.gui import SkillGUI as _SkillGUI
     from mycroft.util import resolve_resource_file
@@ -32,8 +34,9 @@ except ImportError:
         LOG.error("Could not find mycroft root path")
         raise ImportError
 
-
+# implements the following GUI functionality
 # https://github.com/MycroftAI/mycroft-core/pull/2683
+# https://github.com/MycroftAI/mycroft-core/pull/2698
 
 
 class GUIPlaybackStatus(IntEnum):
@@ -58,10 +61,15 @@ class SkillGUI(_SkillGUI):
     def __init__(self, skill):
         super().__init__(skill)
         self.video_info = None
+        self.__skills_config = {}  # data object passed to skill's page
+        self.settings_gui_generator = SettingsGuiGenerator()
 
+    # video playback
+    # https://github.com/MycroftAI/mycroft-core/pull/2683
     def setup_default_handlers(self):
         """Sets the handlers for the default messages."""
         super().setup_default_handlers()
+        # Audio Service bus messages used by common play
         # TODO can we rename this namespace to mycroft.playback.XXX ?
         self.skill.add_event('mycroft.audio.service.pause',
                              self.__handle_gui_pause)
@@ -76,7 +84,6 @@ class SkillGUI(_SkillGUI):
         self.skill.gui.register_handler('video.media.playback.ended',
                                         self.__handle_gui_stop)
 
-    # Audio Service bus messages
     def __handle_gui_resume(self, message):
         """Resume video playback in gui"""
         self.resume_video()
@@ -98,7 +105,6 @@ class SkillGUI(_SkillGUI):
                               self.video_info))
         return self.video_info
 
-    # video playback
     def play_video(self, url, title="", repeat=None, override_idle=True,
                    override_animations=None):
         """ Play video stream
@@ -173,7 +179,90 @@ class SkillGUI(_SkillGUI):
         self.stop_video()
         super().shutdown()
 
-    # overrides
+    # skill settings
+    # https://github.com/MycroftAI/mycroft-core/pull/2698
+    def register_settings(self):
+        """Register requested skill settings
+        configuration in GUI.
+
+        Registers handler to apply settings when
+        updated via GUI interface.
+        Register handler to update settings when
+        updated via Web interface.
+        """
+        skill_id = self.skill.skill_id
+
+        settingmeta_path = join(self.skill.root_dir,
+                                "settingsmeta.json")
+        if isfile(settingmeta_path):
+            self.settings_gui_generator.populate(skill_id,
+                                                 settingmeta_path,
+                                                 self.skill.settings)
+            apply_handler = skill_id + ".settings.set"
+            update_handler = skill_id + ".settings.update"
+            remove_pagehandler = skill_id + ".settings.remove_page"
+            self.register_handler(apply_handler,
+                                  self._apply_settings)
+            self.register_handler(update_handler,
+                                  self._update_settings)
+            self.register_handler(remove_pagehandler,
+                                  self._remove_settings_display)
+
+        else:
+            raise FileNotFoundError("Unable to find setting file for: {}".
+                                    format(skill_id))
+
+    def show_settings(self, override_idle=True,
+                      override_animations=False):
+        """Display skill configuration page in GUI.
+
+        Arguments:
+        override_idle (boolean, int):
+                True: Takes over the resting page indefinitely
+                (int): Delays resting page for the specified number of
+                       seconds.
+        override_animations (boolean):
+                True: Disables showing all platform skill animations.
+                False: 'Default' always show animations.
+        """
+        self.clear()
+        self.__skills_config["sections"] = self.settings_gui_generator.fetch()
+        self.__skills_config["skill_id"] = self.skill.skill_id
+        self["skillsConfig"] = self.__skills_config
+        self.show_page("SYSTEM_SkillSettings.qml",
+                       override_idle=override_idle)
+
+    def _apply_settings(self, message):
+        """Store updated values for keys in skill settings.
+
+        Arguments:
+        message: Messagebus message
+        """
+        self.skill.settings[message.data["setting_key"]] = \
+            message.data["setting_value"]
+
+    def _update_settings(self, message):
+        """Update changed skill settings in GUI.
+
+        Arguments:
+        message: Messagebus message
+        """
+        self.clear()
+        self.settings_gui_generator.update(self.skill.settings)
+        self.show_settings()
+
+    def _remove_settings_display(self, message):
+        """Removes skill settings page from GUI.
+
+        Arguments:
+        message: Messagebus message
+        """
+        self.clear()
+        self.remove_page("SYSTEM_SkillSettings.qml")
+
+    # everything above is a new method, everything bellow is partial overrides
+    # these unfortunately require implementing the full method, may get out
+    # of sync over time
     def show_pages(self, page_names, index=0, override_idle=None,
                    override_animations=False):
         """Begin showing the list of pages in the GUI.
@@ -231,3 +320,36 @@ class SkillGUI(_SkillGUI):
                                      "__from": self.skill.skill_id,
                                      "__idle": override_idle,
                                      "__animations": override_animations}))
+
+    def remove_pages(self, page_names):
+        """Remove a list of pages in the GUI.
+
+        Arguments:
+            page_names (list): List of page names (str) to display, such as
+                               ["Weather.qml", "Forecast.qml", "Other.qml"]
+        """
+        if not isinstance(page_names, list):
+            raise ValueError('page_names must be a list')
+
+        # Convert pages to full reference
+        page_urls = []
+        for name in page_names:
+            if name.startswith("SYSTEM"):
+                page = resolve_resource_file(join('ui', name))
+            else:
+                page = self.skill.find_resource(name, 'ui')
+
+            if not page:
+                # override to look for bundled pages
+                page = resolve_ovos_resource_file(join('ui', name)) or \
+                       resolve_ovos_resource_file(name)
+
+            if page:
+                page_urls.append("file://" + page)
+            else:
+                raise FileNotFoundError("Unable to find page: {}".format(name))
+
+        self.skill.bus.emit(Message("gui.page.delete",
+                                    {"page": page_urls,
+                                     "__from": self.skill.skill_id}))
+
