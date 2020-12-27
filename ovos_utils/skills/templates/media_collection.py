@@ -302,7 +302,7 @@ class MediaCollectionSkill(CommonPlaySkill):
             n = 1
 
         candidates = scores[:n]
-        self.log.info("Choosing randomly from top {n} Dust matches".format(
+        self.log.info("Choosing randomly from top {n} matches".format(
             n=len(candidates)))
         best_video = random.choice(candidates)[0]
 
