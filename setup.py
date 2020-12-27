@@ -2,8 +2,11 @@ from setuptools import setup
 
 setup(
     name='ovos_utils',
-    version='0.0.3',
+    version='0.0.4',
     packages=['ovos_utils',
+              'ovos_utils.waiting_for_mycroft',
+              'ovos_utils.misc',
+              'ovos_utils.intents',
               'ovos_utils.sound',
               'ovos_utils.mark1',
               'ovos_utils.skills',
@@ -15,6 +18,7 @@ setup(
                       "colour",
                       "pexpect",
                       "requests"],
+    include_package_data=True,
     license='Apache',
     author='jarbasAI',
     author_email='jarbasai@mailfence.com',
