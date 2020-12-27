@@ -5,8 +5,8 @@ from ovos_utils.log import LOG
 from ovos_utils import get_mycroft_root
 from ovos_utils.waiting_for_mycroft.skill_gui import SkillGUI
 try:
-    from mycroft.skills.mycroft_skill import MycroftSkill as _MycroftSkill, \
-        FallbackSkill as _FallbackSkill
+    from mycroft.skills.mycroft_skill import MycroftSkill as _MycroftSkill
+    from mycroft.skills.fallback_skill import FallbackSkill as _FallbackSkill
     from mycroft.skills.skill_data import read_vocab_file
     from mycroft.util import resolve_resource_file
 except ImportError:
@@ -14,8 +14,8 @@ except ImportError:
     MYCROFT_ROOT_PATH = get_mycroft_root()
     if MYCROFT_ROOT_PATH is not None:
         sys.path.append(MYCROFT_ROOT_PATH)
-        from mycroft.skills.mycroft_skill import MycroftSkill as \
-            _MycroftSkill, FallbackSkill as _FallbackSkill
+        from mycroft.skills.mycroft_skill import MycroftSkill as _MycroftSkill
+        from mycroft.skills.fallback_skill import FallbackSkill as _FallbackSkill
         from mycroft.skills.skill_data import read_vocab_file
         from mycroft.util import resolve_resource_file
     else:
