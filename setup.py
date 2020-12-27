@@ -22,6 +22,7 @@ setup(
                       "colour",
                       "pexpect",
                       "PyYAML",
+                      "json_database",
                       "requests"],
     include_package_data=True,
     license='Apache',
