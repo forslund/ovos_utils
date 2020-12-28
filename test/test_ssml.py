@@ -2,7 +2,7 @@ import unittest
 from ovos_utils.ssml import SSMLBuilder
 
 
-class TestJsonHelpers(unittest.TestCase):
+class TestSSMLhelpers(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         self.base_utterance = "this is a test of Open Voice OS SSML utils"
