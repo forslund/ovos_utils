@@ -3,6 +3,25 @@ import sys
 import os
 import subprocess
 import re
+from enum import Enum
+import platform
+from ovos_utils.display import can_display, is_gui_installed
+
+
+class MycroftRootLocations(str, Enum):
+    PICROFT = "/home/pi/mycroft-core"
+    BIGSCREEN = "/home/mycroft/mycroft-core"
+    OVOS = "/home/mycroft/mycroft-core"  # TODO ovos here
+    OLD_MARK1 = "/opt/venvs/mycroft-core/lib/python3.4/site-packages/"
+    MARK1 = "/opt/venvs/mycroft-core/lib/python3.7/site-packages/"
+    MARK2 = "/home/mycroft/mycroft-core"  # TODO mark2 here
+
+
+def search_mycroft_core_location():
+    for p in MycroftRootLocations:
+        if os.path.isdir(p):
+            return p
+    return None
 
 
 def get_desktop_environment():
@@ -63,9 +82,27 @@ def is_process_running(process):
     except:  # Windows
         s = subprocess.Popen(["tasklist", "/v"], stdout=subprocess.PIPE)
     for x in s.stdout:
-        if re.search(process, x):
+        if re.search(process, x.decode("utf-8")):
             return True
     return False
+
+
+def get_platform_fingerprint():
+    # TODO hostname
+    return {
+        "platform": platform.platform(),
+        "python_version": platform.python_version(),
+        "system": platform.system(),
+        "version": platform.version(),
+        "arch": platform.machine(),
+        "release": platform.release(),
+        "node": platform.node(),
+        "desktop_env": get_desktop_environment(),
+        "mycroft_core_location": search_mycroft_core_location(),
+        "can_display": can_display(),
+        "is_gui_installed": is_gui_installed(),
+        "pulseaudio_running": is_process_running("pulseaudio")
+    }
 
 
 def ntp_sync():
@@ -95,4 +132,3 @@ def ssh_disable():
     # Permanently block SSH access from the outside
     subprocess.call('sudo systemctl stop ssh.service', shell=True)
     subprocess.call('sudo systemctl disable ssh.service', shell=True)
-
