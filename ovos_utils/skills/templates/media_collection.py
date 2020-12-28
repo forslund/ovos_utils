@@ -50,13 +50,15 @@ class MediaCollectionSkill(CommonPlaySkill):
         if "max_videos" not in self.settings:
             self.settings["max_videos"] = 500
         if "min_duration" not in self.settings:
-            self.settings["min_duration"] = 130
+            self.settings["min_duration"] = -1
         if "max_duration" not in self.settings:
             self.settings["max_duration"] = -1
         if "shuffle_menu" not in self.settings:
             self.settings["shuffle_menu"] = False
         if "filter_live" not in self.settings:
             self.settings["filter_live"] = False
+        if "filter_date" not in self.settings:
+            self.settings["filter_date"] = False
         default_logo = "https://github.com/OpenVoiceOS/ovos_assets/raw" \
                        "/master/Logo/ovos-logo-mono-256.png"
         self.supported_media = [CPSMatchType.GENERIC, CPSMatchType.VIDEO]
@@ -94,34 +96,44 @@ class MediaCollectionSkill(CommonPlaySkill):
             # set skill_id
             for idx, v in enumerate(videos):
                 videos[idx]["skill"] = self.skill_id
+                # set url
+                if len(videos[idx].get("streams", [])):
+                    videos[idx]["url"] = videos[idx]["streams"][0]
+                else:
+                    videos[idx]["url"] = videos[idx].get("stream") or \
+                                         videos[idx].get("url")
             # return sorted
             return self.sort_videos(videos)
         except Exception as e:
+            LOG.exception(e)
             return []
 
     # homescreen / menu
     def sort_videos(self, videos):
-        # this will filter private videos
-        videos = [v for v in videos if v.get("upload_date")]
+        # sort by upload date
+        if self.settings["filter_date"]:
+            videos = sorted(videos,
+                        key=lambda kv: datestr2ts(kv.get("upload_date")),
+                        reverse=True)
 
         # this will filter live videos
         live = [v for v in videos if v.get("is_live")]
         videos = [v for v in videos if not v.get("is_live")]
 
-        # sort by upload date
-        videos = sorted(videos,
-                        key=lambda kv: datestr2ts(kv["upload_date"]),
-                        reverse=True)
-
         # live streams before videos
-        if not self.settings["filter_live"]:
-            videos = live + videos
+        return live + videos
 
-        return videos
+    def filter_videos(self, videos):
+        # this will filter private videos in youtube
+        if self.settings["filter_date"]:
+            videos = [v for v in videos if v.get("upload_date")]
 
-    def filter_videos(self):
+        # this will filter live videos
+        live = [v for v in videos if v.get("is_live")]
+        videos = [v for v in videos if not v.get("is_live")]
+
         # filter by duration
-        videos = [v for v in self.videos if int(v.get("duration", 0)) >=
+        videos = [v for v in videos if int(v.get("duration", 0)) >=
                   self.settings["min_duration"]]
         if self.settings["max_duration"] > 0:
             videos = [v for v in videos if int(v.get("duration", 0)) <=
@@ -137,11 +149,14 @@ class MediaCollectionSkill(CommonPlaySkill):
             # rendering takes forever if there are too many entries
             videos = videos[:self.settings["max_videos"]]
 
-        return videos
+        # this will filter live videos
+        if self.settings["filter_live"]:
+            return videos
+        return live + videos
 
     def handle_homescreen(self, message):
         self.gui.clear()
-        self.gui["videosHomeModel"] = self.filter_videos()
+        self.gui["videosHomeModel"] = self.filter_videos(self.videos)
         self.gui["historyModel"] = JsonStorageXDG("{msg_base}.history".format(msg_base=self.message_namespace)) \
             .get("model", [])
         self.gui.show_page("Homescreen.qml", override_idle=True)
@@ -180,11 +195,15 @@ class MediaCollectionSkill(CommonPlaySkill):
 
         return match, score
 
-    def match_tags(self, video, phrase, match):
+    def augment_tags(self, phrase, media_type, tags=None):
+        return tags or []
+
+    def match_tags(self, video, phrase, match, media_type):
         score = 0
         # score tags
         leftover_text = phrase
         tags = list(set(video.get("tags") or []))
+        tags = self.augment_tags(phrase, media_type, tags)
         if tags:
             # tag match bonus
             for tag in tags:
@@ -264,7 +283,7 @@ class MediaCollectionSkill(CommonPlaySkill):
         # match video data
         scores = []
         for video in videos:
-            match, score, _ = self.match_tags(video, phrase, match)
+            match, score, _ = self.match_tags(video, phrase, match, media_type)
             # match, score, leftover_text = self.match_description(video, leftover_text, match)
             scores.append((video, score))
             if score > best_score:
@@ -302,7 +321,7 @@ class MediaCollectionSkill(CommonPlaySkill):
             n = 1
 
         candidates = scores[:n]
-        self.log.info("Choosing randomly from top {n} Dust matches".format(
+        self.log.info("Choosing randomly from top {n} matches".format(
             n=len(candidates)))
         best_video = random.choice(candidates)[0]
 
@@ -345,9 +364,19 @@ class MediaCollectionSkill(CommonPlaySkill):
 
         self.add_to_history(video_data)
         # play video
-        video = Media.from_json(video_data)
-        url = str(video.streams[0])
-        self.gui.play_video(url, video.name)
+        try:
+            # uses youtube-dl to extract all sorts of streams
+            video = Media.from_json(video_data)
+            url = str(video.streams[0])
+            self.gui.play_video(url, video.name)
+        except Exception as e:
+            # TODO improve this exception, check for file extensions and
+            #  skip youtube-dl
+            if len(video_data.get("streams", [])):
+                url = video_data["streams"][0]
+            else:
+                url = video_data.get("stream") or video_data.get("url")
+            self.gui.play_video(url, video.get("title") or video.get("name"))
 
 
 def create_skill():
