@@ -14,15 +14,14 @@
 from inspect import signature
 from enum import IntEnum
 from abc import abstractmethod
-from ovos_utils.log import LOG
-from ovos_utils import get_mycroft_root
 from ovos_utils.waiting_for_mycroft.base_skill import MycroftSkill
 
 try:
     from mycroft.skills.common_play_skill import CommonPlaySkill as _CommonPlaySkill
 except ImportError:
     import sys
-
+    from ovos_utils.log import LOG
+    from ovos_utils import get_mycroft_root
     MYCROFT_ROOT_PATH = get_mycroft_root()
     if MYCROFT_ROOT_PATH is not None:
         sys.path.append(MYCROFT_ROOT_PATH)

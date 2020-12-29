@@ -1,16 +1,18 @@
 import re
 from os.path import join, exists
 from itertools import chain
-from ovos_utils.log import LOG
-from ovos_utils import get_mycroft_root
 from ovos_utils.waiting_for_mycroft.skill_gui import SkillGUI
+from ovos_utils.waiting_for_mycroft.skill_api import SkillApi
 try:
     from mycroft.skills.mycroft_skill import MycroftSkill as _MycroftSkill
     from mycroft.skills.fallback_skill import FallbackSkill as _FallbackSkill
     from mycroft.skills.skill_data import read_vocab_file
     from mycroft.util import resolve_resource_file
+    from mycroft.skills.mycroft_skill import get_non_properties
 except ImportError:
     import sys
+    from ovos_utils.log import LOG
+    from ovos_utils import get_mycroft_root
     MYCROFT_ROOT_PATH = get_mycroft_root()
     if MYCROFT_ROOT_PATH is not None:
         sys.path.append(MYCROFT_ROOT_PATH)
@@ -18,6 +20,7 @@ except ImportError:
         from mycroft.skills.fallback_skill import FallbackSkill as _FallbackSkill
         from mycroft.skills.skill_data import read_vocab_file
         from mycroft.util import resolve_resource_file
+        from mycroft.skills.mycroft_skill import get_non_properties
     else:
         LOG.error("Could not find mycroft root path")
         raise ImportError
@@ -29,6 +32,66 @@ class MycroftSkill(_MycroftSkill):
         super().__init__(*args, **kwargs)
         # https://github.com/MycroftAI/mycroft-core/pull/2683
         self.gui = SkillGUI(self)
+        # https://github.com/MycroftAI/mycroft-core/pull/1822
+        # Skill Public API
+        self.public_api = {}
+
+    # https://github.com/MycroftAI/mycroft-core/pull/1822
+    def bind(self, bus):
+        super(MycroftSkill, self).bind(bus)
+        SkillApi.connect_bus(bus)
+        self._register_public_api()
+
+    def _send_public_api(self, message):
+        """Respond with the skill's public api."""
+        self.bus.emit(message.response(data=self.public_api))
+
+    def _register_public_api(self):
+        """ Find and register api methods.
+        Api methods has been tagged with the api_method member, for each
+        method where this is found the method a message bus handler is
+        registered.
+        Finally create a handler for fetching the api info from any requesting
+        skill.
+        """
+
+        def wrap_method(func):
+            """Boiler plate for returning the response to the sender."""
+            def wrapper(message):
+                result = func(*message.data['args'], **message.data['kwargs'])
+                self.bus.emit(message.response(data={'result': result}))
+
+            return wrapper
+
+        methods = [attr_name for attr_name in get_non_properties(self)
+                   if hasattr(getattr(self, attr_name), '__name__')]
+
+        for attr_name in methods:
+            method = getattr(self, attr_name)
+
+            if hasattr(method, 'api_method'):
+                doc = method.__doc__ or ''
+                name = method.__name__
+                self.public_api[name] = {
+                    'help': doc,
+                    'type': '{}.{}'.format(self.skill_id, name),
+                    'func': method
+                }
+        for key in self.public_api:
+            if ('type' in self.public_api[key] and
+                    'func' in self.public_api[key]):
+                LOG.debug('Adding api method: '
+                          '{}'.format(self.public_api[key]['type']))
+
+                # remove the function member since it shouldn't be
+                # reused and can't be sent over the messagebus
+                func = self.public_api[key].pop('func')
+                self.add_event(self.public_api[key]['type'],
+                               wrap_method(func))
+
+        if self.public_api:
+            self.add_event('{}.public_api'.format(self.skill_id),
+                           self._send_public_api)
 
     # https://github.com/MycroftAI/mycroft-core/pull/2675
     def voc_match(self, utt, voc_filename, lang=None, exact=False):
