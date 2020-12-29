@@ -4,6 +4,7 @@ from os.path import join, dirname, basename
 import random
 import re
 import datetime
+from json_database import JsonStorageXDG
 from ovos_utils import get_mycroft_root
 from ovos_utils.log import LOG
 from ovos_utils.parse import fuzzy_match
@@ -19,14 +20,6 @@ except ImportError:
     else:
         LOG.error("Could not find mycroft root path")
         raise ImportError
-
-
-try:
-    from json_database import JsonStorageXDG
-except ImportError:
-    LOG.error("json_database not installed!")
-    LOG.debug("pip install json_database>=0.2.1")
-
 
 try:
     from pyvod import Collection, Media
