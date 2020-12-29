@@ -48,7 +48,8 @@ Siri
     """
 
     def test_singularize(self):
-
+        # uses inflection module for english
+        # https://pypi.org/project/inflection/
         self.assertEqual(
             singularize("dogs"), "dog"
         )
