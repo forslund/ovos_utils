@@ -376,7 +376,8 @@ class MediaCollectionSkill(CommonPlaySkill):
                 url = video_data["streams"][0]
             else:
                 url = video_data.get("stream") or video_data.get("url")
-            self.gui.play_video(url, video.get("title") or video.get("name"))
+            self.gui.play_video(url, video_data.get("title") or
+                                video_data.get("name"))
 
 
 def create_skill():

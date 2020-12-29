@@ -22,6 +22,7 @@ import os
 from os.path import  isdir, join, dirname
 import re
 import socket
+from inflection import camelize, titleize, transliterate, parameterize, ordinalize
 
 
 def get_ip():
