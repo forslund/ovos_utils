@@ -118,7 +118,7 @@ class MediaSkill(CommonPlaySkill):
         image = data.get("image") or self.default_image
         url = data["stream"]
         if self.gui.connected and not self.settings["audio_only"]:
-            url = pyvod.get_video_stream(url,
+            url = pyvod.utils.get_video_stream(url,
                                          download=self.settings[
                                              "download_video"])
             self.CPS_send_status(uri=url,
@@ -128,7 +128,7 @@ class MediaSkill(CommonPlaySkill):
                                  status=CPSTrackStatus.PLAYING_GUI)
             self.gui.play_video(url, self.name)
         else:
-            url = pyvod.get_audio_stream(url,
+            url = pyvod.utils.get_audio_stream(url,
                                          download=self.settings[
                                              "download_audio"],
                                          to_mp3=self.settings["mp3_audio"])
