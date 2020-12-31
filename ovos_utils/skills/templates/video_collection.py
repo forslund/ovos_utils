@@ -43,19 +43,19 @@ class VideoCollectionSkill(CommonPlaySkill):
             self.settings["filter_live"] = False
         if "filter_date" not in self.settings:
             self.settings["filter_date"] = False
-        default_logo = resolve_ovos_resource_file("ui/images/moviesandfilms.png")
+
         if pyvod is None:
             LOG.error("py_VOD not installed!")
             LOG.info("pip install py_VOD>=0.4.0")
             raise ImportError
-
+        self.default_bg = "https://github.com/OpenVoiceOS/ovos_assets/raw/master/Logo/ovos-logo-512.png"
+        self.default_image = resolve_ovos_resource_file("ui/images/moviesandfilms.png")
         db_path = join(dirname(__file__), "res", self.name + ".jsondb")
         self.message_namespace = basename(dirname(__file__)) + ".ovos_utils"
         self.media_collection = pyvod.Collection(self.name,
-                                           logo=default_logo,
+                                           logo=self.default_image,
                                            db_path=db_path)
-        self.default_bg = "https://github.com/OpenVoiceOS/ovos_assets/raw/master/Logo/ovos-logo-512.png"
-        self.default_image = resolve_ovos_resource_file("ui/images/moviesandfilms.png")
+
 
     def initialize(self):
         self.initialize_media_commons()
