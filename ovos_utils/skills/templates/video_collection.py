@@ -308,7 +308,7 @@ class VideoCollectionSkill(CommonPlaySkill):
         score = base_score + best_score
         score = self.calc_final_score(phrase, score, match)
         if isinstance(score, float):
-            if score >= 0.85:
+            if score >= 0.9:
                 match = CPSMatchLevel.EXACT
             elif score >= 0.7:
                 match = CPSMatchLevel.MULTI_KEY
@@ -317,7 +317,7 @@ class VideoCollectionSkill(CommonPlaySkill):
         else:
             score, match = score
 
-        self.log.debug("Best video: " + best_video["title"])
+        self.log.info("Best video: " + best_video["title"])
 
         if match is not None:
             return (leftover_text, match, best_video)
